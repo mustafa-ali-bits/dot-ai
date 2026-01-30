@@ -1,4 +1,4 @@
-import { Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "../sandbox.js";
 
 export interface LocalExecuteResponse {
   exitCode: number;

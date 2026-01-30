@@ -4,10 +4,7 @@ import { getSandboxErrorFields } from "../utils/sandbox-error-fields.js";
 import { createLogger, LogLevel } from "../utils/logger.js";
 import { TIMEOUT_SEC } from "@openswe/shared/constants";
 import { getRepoAbsolutePath } from "@openswe/shared/git";
-import {
-  isLocalMode,
-  getLocalWorkingDirectory,
-} from "@openswe/shared/open-swe/local-mode";
+
 import {
   createGrepToolFields,
   formatGrepCommand,
@@ -25,10 +22,7 @@ export function createGrepTool(
     async (input): Promise<{ result: string; status: "success" | "error" }> => {
       try {
         const command = formatGrepCommand(input);
-        const localMode = isLocalMode(config);
-        const localAbsolutePath = getLocalWorkingDirectory();
-        const sandboxAbsolutePath = getRepoAbsolutePath(state.targetRepository);
-        const workDir = localMode ? localAbsolutePath : sandboxAbsolutePath;
+        const workDir = getRepoAbsolutePath(state.targetRepository);
 
         logger.info("Running grep search command", {
           command: command.join(" "),

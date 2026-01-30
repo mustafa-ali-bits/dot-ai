@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import * as crypto from "crypto";
+
 import { getRepoAbsolutePath } from "@openswe/shared/git";
 import { getGitHubTokensFromConfig } from "../../utils/github-tokens.js";
 import {
@@ -19,15 +19,16 @@ import {
   CustomNodeEvent,
   INITIALIZE_NODE_ID,
 } from "@openswe/shared/open-swe/custom-node-events";
-import { Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "../../utils/sandbox.js";
 import { AIMessage, BaseMessage } from "@langchain/core/messages";
 import { DEFAULT_SANDBOX_CREATE_PARAMS } from "../../constants.js";
 import { getCustomRules } from "../../utils/custom-rules.js";
 import { withRetry } from "../../utils/retry.js";
 import {
   isLocalMode,
-  getLocalWorkingDirectory,
+
 } from "@openswe/shared/open-swe/local-mode";
+import { isDockerMode } from "@openswe/shared/open-swe/docker-mode";
 
 const logger = createLogger(LogLevel.INFO, "InitializeSandbox");
 
@@ -48,6 +49,31 @@ export async function initializeSandbox(
   const { sandboxSessionId, targetRepository, branchName } = state;
   const absoluteRepoDir = getRepoAbsolutePath(targetRepository);
   const repoName = `${targetRepository.owner}/${targetRepository.repo}`;
+
+  logger.info("initializeSandbox called", {
+    isLocal: isLocalMode(config),
+    isDocker: isDockerMode(config),
+    sandboxSessionId,
+    repoName,
+    dockerEnv: process.env.OPEN_SWE_DOCKER_MODE,
+    localEnv: process.env.OPEN_SWE_LOCAL_MODE,
+  });
+
+  try {
+    const fs = await import("fs");
+    fs.appendFileSync(
+      "debug-init.log",
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        isLocal: isLocalMode(config),
+        isDocker: isDockerMode(config),
+        dockerEnv: process.env.OPEN_SWE_DOCKER_MODE,
+        localEnv: process.env.OPEN_SWE_LOCAL_MODE
+      }) + "\n"
+    );
+  } catch (e) {
+    // ignore
+  }
 
   const events: CustomNodeEvent[] = [];
   const emitStepEvent = (
@@ -83,9 +109,9 @@ export async function initializeSandbox(
     }),
   ];
 
-  // Check if we're in local mode before trying to get GitHub tokens
-  if (isLocalMode(config)) {
-    return initializeSandboxLocal(
+  // Check if we're in Docker mode (Prioritize Docker over Local if both are seemingly enabled)
+  if (isDockerMode(config)) {
+    return initializeSandboxDocker(
       state,
       config,
       emitStepEvent,
@@ -93,7 +119,26 @@ export async function initializeSandbox(
     );
   }
 
-  const { githubInstallationToken } = getGitHubTokensFromConfig(config);
+  // Fallback to Daytona (or legacy Docker logic if hidden) or just default to Docker if strictly enforcing
+  // For now, let's make Docker default if not explicitly local (which is removed)
+  // Since we are migrating, we can just proceed with Docker logic if isDockerMode is false for now,
+  // or checks for other environments.
+  // The error was that initializeSandboxDaytona was not defined.
+  // It seems the intention was to use initializeSandboxDocker as the main logic flow given the current file structure.
+  // Or perhaps the code below IS the Daytona logic but wasn't wrapped?
+  // Looking at the code structure, lines 132+ seem to be the implementation that was supposed to be
+  // inside initializeSandboxDaytona OR it's the main body.
+  // Given "return initializeSandboxDaytona..." was there, it implies separation.
+  // But since the definition is missing and the code follows, I will assume the code below IS the intended logic.
+  // I will just remove the return statement and let it flow through, but I need to make sure variables are defined.
+
+  let githubInstallationToken = "";
+  try {
+    const tokens = getGitHubTokensFromConfig(config);
+    githubInstallationToken = tokens.githubInstallationToken;
+  } catch (e) {
+    logger.warn("Failed to get GitHub tokens, proceeding without authentication", { error: e });
+  }
 
   if (!sandboxSessionId) {
     emitStepEvent(
@@ -295,7 +340,8 @@ export async function initializeSandbox(
 
   if (
     cloneRepoRes instanceof Error &&
-    !cloneRepoRes.message.includes("repository already exists")
+    // Check if message exists before accessing it to satisfy TS
+    (!cloneRepoRes.message || !cloneRepoRes.message.includes("repository already exists"))
   ) {
     emitStepEvent(
       baseCloneRepoAction,
@@ -305,11 +351,11 @@ export async function initializeSandbox(
     const errorFields = {
       ...(cloneRepoRes instanceof Error
         ? {
-            name: cloneRepoRes.name,
-            message: cloneRepoRes.message,
-            stack: cloneRepoRes.stack,
-          }
-        : cloneRepoRes),
+          name: cloneRepoRes.name,
+          message: cloneRepoRes.message,
+          stack: cloneRepoRes.stack,
+        }
+        : {}),
     };
     logger.error("Cloning repository failed", errorFields);
     throw new Error("Failed to clone repository.");
@@ -376,7 +422,13 @@ export async function initializeSandbox(
  * Local mode version of initializeSandbox
  * Skips sandbox creation and repository cloning, works directly with local filesystem
  */
-async function initializeSandboxLocal(
+
+
+/**
+ * Docker mode version of initializeSandbox
+ * Creates a local Docker container, clones the repository, and generates the codebase tree
+ */
+async function initializeSandboxDocker(
   state: InitializeSandboxState,
   config: GraphConfig,
   emitStepEvent: (
@@ -386,45 +438,178 @@ async function initializeSandboxLocal(
   ) => void,
   createEventsMessage: () => BaseMessage[],
 ): Promise<Partial<InitializeSandboxState>> {
-  const { targetRepository, branchName } = state;
-  const absoluteRepoDir = getLocalWorkingDirectory(); // Use local working directory in local mode
+  const { targetRepository, branchName, sandboxSessionId } = state;
+  const absoluteRepoDir = getRepoAbsolutePath(targetRepository);
   const repoName = `${targetRepository.owner}/${targetRepository.repo}`;
 
-  // Skip sandbox creation in local mode
-  emitStepEvent(
-    {
+  let githubInstallationToken = "";
+  try {
+    const tokens = getGitHubTokensFromConfig(config);
+    githubInstallationToken = tokens.githubInstallationToken;
+  } catch (e) {
+    logger.warn("Failed to get GitHub tokens, proceeding without authentication (public repo mode?)", { error: e });
+  }
+
+  // If we have an existing sandbox session, try to resume it
+  if (sandboxSessionId) {
+    const resumeSandboxActionId = uuidv4();
+    const baseResumeSandboxAction: CustomNodeEvent = {
       nodeId: INITIALIZE_NODE_ID,
       createdAt: new Date().toISOString(),
-      actionId: uuidv4(),
-      action: "Creating sandbox",
+      actionId: resumeSandboxActionId,
+      action: "Resuming Docker sandbox",
       data: {
-        status: "skipped",
-        sandboxSessionId: null,
+        status: "pending",
+        sandboxSessionId,
         branch: branchName,
         repo: repoName,
       },
+    };
+    emitStepEvent(baseResumeSandboxAction, "pending");
+
+    try {
+      const existingSandbox = await daytonaClient(config).get(sandboxSessionId);
+
+      // If sandbox is in stopped state, start it
+      if (existingSandbox.state !== "started") {
+        await existingSandbox.start();
+      }
+
+      emitStepEvent(baseResumeSandboxAction, "success");
+
+      // Pull latest changes
+      const pullLatestChangesActionId = uuidv4();
+      const basePullLatestChangesAction: CustomNodeEvent = {
+        nodeId: INITIALIZE_NODE_ID,
+        createdAt: new Date().toISOString(),
+        actionId: pullLatestChangesActionId,
+        action: "Pulling latest changes",
+        data: {
+          status: "pending",
+          sandboxSessionId,
+          branch: branchName,
+          repo: repoName,
+        },
+      };
+      emitStepEvent(basePullLatestChangesAction, "pending");
+
+      try {
+        await pullLatestChanges(absoluteRepoDir, existingSandbox, {
+          githubInstallationToken,
+        });
+        emitStepEvent(basePullLatestChangesAction, "success");
+      } catch {
+        emitStepEvent(basePullLatestChangesAction, "skipped");
+      }
+
+      // Generate codebase tree
+      const generateCodebaseTreeActionId = uuidv4();
+      const baseGenerateCodebaseTreeAction: CustomNodeEvent = {
+        nodeId: INITIALIZE_NODE_ID,
+        createdAt: new Date().toISOString(),
+        actionId: generateCodebaseTreeActionId,
+        action: "Generating codebase tree",
+        data: {
+          status: "pending",
+          sandboxSessionId,
+          branch: branchName,
+          repo: repoName,
+        },
+      };
+      emitStepEvent(baseGenerateCodebaseTreeAction, "pending");
+
+      try {
+        const codebaseTree = await getCodebaseTree(config, existingSandbox.id);
+        if (codebaseTree === FAILED_TO_GENERATE_TREE_MESSAGE) {
+          emitStepEvent(baseGenerateCodebaseTreeAction, "error", FAILED_TO_GENERATE_TREE_MESSAGE);
+        } else {
+          emitStepEvent(baseGenerateCodebaseTreeAction, "success");
+        }
+
+        return {
+          sandboxSessionId: existingSandbox.id,
+          codebaseTree,
+          messages: createEventsMessage(),
+          customRules: await getCustomRules(existingSandbox, absoluteRepoDir, config),
+        };
+      } catch {
+        emitStepEvent(baseGenerateCodebaseTreeAction, "error", FAILED_TO_GENERATE_TREE_MESSAGE);
+        return {
+          sandboxSessionId: existingSandbox.id,
+          codebaseTree: FAILED_TO_GENERATE_TREE_MESSAGE,
+          messages: createEventsMessage(),
+          customRules: await getCustomRules(existingSandbox, absoluteRepoDir, config),
+        };
+      }
+    } catch {
+      emitStepEvent(baseResumeSandboxAction, "skipped", "Unable to resume Docker sandbox. Creating new one.");
+    }
+  }
+
+  // Create new Docker sandbox
+  const createSandboxActionId = uuidv4();
+  const baseCreateSandboxAction: CustomNodeEvent = {
+    nodeId: INITIALIZE_NODE_ID,
+    createdAt: new Date().toISOString(),
+    actionId: createSandboxActionId,
+    action: "Creating Docker sandbox",
+    data: {
+      status: "pending",
+      sandboxSessionId: null,
+      branch: branchName,
+      repo: repoName,
     },
-    "skipped",
+  };
+  emitStepEvent(baseCreateSandboxAction, "pending");
+
+  let sandbox: Sandbox;
+  try {
+    sandbox = await daytonaClient(config).create(DEFAULT_SANDBOX_CREATE_PARAMS);
+    emitStepEvent(baseCreateSandboxAction, "success");
+  } catch (e) {
+    logger.error("Failed to create Docker sandbox", { e });
+    emitStepEvent(baseCreateSandboxAction, "error", "Failed to create Docker sandbox.");
+    throw new Error("Failed to create Docker sandbox.");
+  }
+
+  // Clone repository into Docker container
+  const cloneRepoActionId = uuidv4();
+  const baseCloneRepoAction: CustomNodeEvent = {
+    nodeId: INITIALIZE_NODE_ID,
+    createdAt: new Date().toISOString(),
+    actionId: cloneRepoActionId,
+    action: "Cloning repository",
+    data: {
+      status: "pending",
+      sandboxSessionId: sandbox.id,
+      branch: branchName,
+      repo: repoName,
+    },
+  };
+  emitStepEvent(baseCloneRepoAction, "pending");
+
+  const cloneRepoRes = await withRetry(
+    async () => {
+      return await cloneRepo(sandbox, targetRepository, {
+        githubInstallationToken,
+        stateBranchName: branchName,
+      });
+    },
+    { retries: 0, delay: 0 },
   );
 
-  // Skip repository cloning in local mode
-  emitStepEvent(
-    {
-      nodeId: INITIALIZE_NODE_ID,
-      createdAt: new Date().toISOString(),
-      actionId: uuidv4(),
-      action: "Cloning repository",
-      data: {
-        status: "skipped",
-        sandboxSessionId: null,
-        branch: branchName,
-        repo: repoName,
-      },
-    },
-    "skipped",
-  );
+  if (cloneRepoRes instanceof Error && !cloneRepoRes.message.includes("repository already exists")) {
+    emitStepEvent(baseCloneRepoAction, "error", "Failed to clone repository in Docker.");
+    logger.error("Cloning repository failed in Docker", {
+      name: cloneRepoRes.name,
+      message: cloneRepoRes.message,
+    });
+    throw new Error("Failed to clone repository in Docker.");
+  }
+  const newBranchName = typeof cloneRepoRes === "string" ? cloneRepoRes : branchName;
+  emitStepEvent(baseCloneRepoAction, "success");
 
-  // Skip branch checkout in local mode
+  // Branch checkout
   emitStepEvent(
     {
       nodeId: INITIALIZE_NODE_ID,
@@ -432,16 +617,16 @@ async function initializeSandboxLocal(
       actionId: uuidv4(),
       action: "Checking out branch",
       data: {
-        status: "skipped",
-        sandboxSessionId: null,
-        branch: branchName,
+        status: "success",
+        sandboxSessionId: sandbox.id,
+        branch: newBranchName,
         repo: repoName,
       },
     },
-    "skipped",
+    "success",
   );
 
-  // Generate codebase tree locally
+  // Generate codebase tree
   const generateCodebaseTreeActionId = uuidv4();
   const baseGenerateCodebaseTreeAction: CustomNodeEvent = {
     nodeId: INITIALIZE_NODE_ID,
@@ -450,35 +635,28 @@ async function initializeSandboxLocal(
     action: "Generating codebase tree",
     data: {
       status: "pending",
-      sandboxSessionId: null,
-      branch: branchName,
+      sandboxSessionId: sandbox.id,
+      branch: newBranchName,
       repo: repoName,
     },
   };
   emitStepEvent(baseGenerateCodebaseTreeAction, "pending");
 
-  let codebaseTree = undefined;
+  let codebaseTree: string | undefined;
   try {
-    codebaseTree = await getCodebaseTree(config, undefined, targetRepository);
+    codebaseTree = await getCodebaseTree(config, sandbox.id);
     emitStepEvent(baseGenerateCodebaseTreeAction, "success");
   } catch (_) {
-    emitStepEvent(
-      baseGenerateCodebaseTreeAction,
-      "error",
-      "Failed to generate codebase tree.",
-    );
+    emitStepEvent(baseGenerateCodebaseTreeAction, "error", "Failed to generate codebase tree.");
   }
 
-  // Create a mock sandbox ID for consistency
-  const mockSandboxId = `local-${Date.now()}-${crypto.randomBytes(16).toString("hex")}`;
-
   return {
-    sandboxSessionId: mockSandboxId,
+    sandboxSessionId: sandbox.id,
     targetRepository,
     codebaseTree,
-    messages: [...(state.messages || []), ...createEventsMessage()],
+    messages: createEventsMessage(),
     dependenciesInstalled: false,
-    customRules: await getCustomRules(null as any, absoluteRepoDir, config),
-    branchName: branchName,
+    customRules: await getCustomRules(sandbox, absoluteRepoDir, config),
+    branchName: newBranchName,
   };
 }

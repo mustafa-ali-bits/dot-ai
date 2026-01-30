@@ -1,11 +1,7 @@
-import { Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "../sandbox.js";
 import { GraphConfig } from "@openswe/shared/open-swe/types";
 import { TIMEOUT_SEC } from "@openswe/shared/constants";
-import {
-  isLocalMode,
-  getLocalWorkingDirectory,
-} from "@openswe/shared/open-swe/local-mode";
-import { getLocalShellExecutor } from "./local-shell-executor.js";
+
 import { createLogger, LogLevel } from "../logger.js";
 import { ExecuteCommandOptions, LocalExecuteResponse } from "./types.js";
 import { getSandboxSessionOrThrow } from "../../tools/utils/get-sandbox-id.js";
@@ -22,11 +18,9 @@ const DEFAULT_ENV = {
  * This eliminates the need for if/else blocks in every tool that runs shell commands
  */
 export class ShellExecutor {
-  private config?: GraphConfig;
 
-  constructor(config?: GraphConfig) {
-    this.config = config;
-  }
+
+
 
   /**
    * Execute a command either locally or in the sandbox based on the current mode
@@ -49,41 +43,16 @@ export class ShellExecutor {
     logger.info("Executing command", {
       command: commandString,
       workdir,
-      localMode: isLocalMode(this.config),
     });
 
-    if (isLocalMode(this.config)) {
-      return this.executeLocal(commandString, workdir, environment, timeout);
-    } else {
-      return this.executeSandbox(
-        commandString,
-        workdir,
-        environment,
-        timeout,
-        sandbox,
-        sandboxSessionId,
-      );
-    }
-  }
-
-  /**
-   * Execute command locally using LocalShellExecutor
-   */
-  private async executeLocal(
-    command: string,
-    workdir?: string,
-    env?: Record<string, string>,
-    timeout?: number,
-  ): Promise<LocalExecuteResponse> {
-    const executor = getLocalShellExecutor(getLocalWorkingDirectory());
-    const localWorkdir = workdir || getLocalWorkingDirectory();
-
-    return await executor.executeCommand(command, {
-      workdir: localWorkdir,
-      env,
+    return this.executeSandbox(
+      commandString,
+      workdir,
+      environment,
       timeout,
-      localMode: true,
-    });
+      sandbox,
+      sandboxSessionId,
+    );
   }
 
   /**
@@ -113,18 +82,16 @@ export class ShellExecutor {
 
   /**
    * Check if we're in local mode
+   * @deprecated Local mode is removed
    */
   checkLocalMode(): boolean {
-    return isLocalMode(this.config);
+    return false;
   }
 
   /**
    * Get the appropriate working directory for the current mode
    */
   getWorkingDirectory(): string {
-    if (isLocalMode(this.config)) {
-      return getLocalWorkingDirectory();
-    }
     // For sandbox mode, this would need to be provided by the caller
     // since it depends on the specific sandbox context
     throw new Error(
@@ -136,8 +103,8 @@ export class ShellExecutor {
 /**
  * Factory function to create a ShellExecutor instance
  */
-export function createShellExecutor(config?: GraphConfig): ShellExecutor {
-  return new ShellExecutor(config);
+export function createShellExecutor(_config?: GraphConfig): ShellExecutor {
+  return new ShellExecutor();
 }
 
 /**

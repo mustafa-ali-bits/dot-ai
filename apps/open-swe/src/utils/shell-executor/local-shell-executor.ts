@@ -68,11 +68,12 @@ export class LocalShellExecutor {
     timeout: number,
   ): Promise<LocalExecuteResponse> {
     return new Promise((resolve, reject) => {
-      // Try different shell paths
+      // Try different shell paths (macOS-friendly order)
       const shellPaths = [
-        "/bin/bash",
+        "/bin/zsh",      // macOS default
+        "/bin/bash",     // common default
+        "/bin/sh",       // POSIX fallback
         "/usr/bin/bash",
-        "/bin/sh",
         "/usr/bin/sh",
       ];
       let lastError: Error | null = null;

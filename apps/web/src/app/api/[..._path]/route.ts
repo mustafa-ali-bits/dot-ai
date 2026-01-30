@@ -5,6 +5,7 @@ import {
   GITHUB_INSTALLATION_TOKEN_COOKIE,
   GITHUB_INSTALLATION_NAME,
   GITHUB_INSTALLATION_ID,
+  LOCAL_MODE_HEADER,
 } from "@openswe/shared/constants";
 import {
   getGitHubInstallationTokenOrThrow,
@@ -55,6 +56,10 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS, runtime } =
           "SECRETS_ENCRYPTION_KEY environment variable is required",
         );
       }
+
+      // Check if local mode is enabled
+      const isLocalMode = process.env.NEXT_PUBLIC_LOCAL_MODE === "true";
+
       const installationIdCookie = req.cookies.get(
         GITHUB_INSTALLATION_ID_COOKIE,
       )?.value;
@@ -74,6 +79,7 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS, runtime } =
         [GITHUB_INSTALLATION_TOKEN_COOKIE]: installationToken,
         [GITHUB_INSTALLATION_NAME]: installationName,
         [GITHUB_INSTALLATION_ID]: installationIdCookie,
+        ...(isLocalMode ? { [LOCAL_MODE_HEADER]: "true" } : {}),
       };
     },
   });

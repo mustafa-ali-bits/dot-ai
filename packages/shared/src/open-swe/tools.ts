@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { TargetRepository, GraphConfig } from "./types.js";
+import { TargetRepository } from "./types.js";
 import { getRepoAbsolutePath } from "../git.js";
 import { TIMEOUT_SEC } from "../constants.js";
-import { isLocalMode, getLocalWorkingDirectory } from "./local-mode.js";
+
 
 export function createApplyPatchToolFields(targetRepository: TargetRepository) {
   const repoRoot = getRepoAbsolutePath(targetRepository);
@@ -30,8 +30,8 @@ export function createRequestHumanHelpToolFields() {
       .string()
       .describe(
         "The help request to send to the human. Should be concise, but descriptive.\n" +
-          "IMPORTANT: This should be a request which the user can help with, such as providing context into where a function lives/is used within a codebase, or answering questions about how to run scripts.\n" +
-          "IMPORTANT: The user does NOT have access to the filesystem you're running on, and thus can not make changes to the code for you.",
+        "IMPORTANT: This should be a request which the user can help with, such as providing context into where a function lives/is used within a codebase, or answering questions about how to run scripts.\n" +
+        "IMPORTANT: The user does NOT have access to the filesystem you're running on, and thus can not make changes to the code for you.",
       ),
   });
   return {
@@ -312,9 +312,9 @@ export function createMarkTaskCompletedToolFields() {
       .string()
       .describe(
         "A detailed summary of the actions you took to complete the current task. " +
-          "Include specifics into the actions you took, insights you learned about the codebase while completing the task, and any other context which would be useful to another developer reviewing the actions you took. " +
-          "You may include file paths and lists of the changes you made, but do not include full file contents or full code changes. " +
-          "Ensure your summary is concise, thoughtful and helpful.",
+        "Include specifics into the actions you took, insights you learned about the codebase while completing the task, and any other context which would be useful to another developer reviewing the actions you took. " +
+        "You may include file paths and lists of the changes you made, but do not include full file contents or full code changes. " +
+        "Ensure your summary is concise, thoughtful and helpful.",
       ),
   });
 
@@ -556,11 +556,9 @@ export function createReviewStartedToolFields() {
 
 export function createTextEditorToolFields(
   targetRepository: TargetRepository,
-  config: GraphConfig,
+
 ) {
-  const repoRoot = isLocalMode(config)
-    ? getLocalWorkingDirectory()
-    : getRepoAbsolutePath(targetRepository);
+  const repoRoot = getRepoAbsolutePath(targetRepository);
   const textEditorToolSchema = z.object({
     command: z
       .enum(["view", "str_replace", "create", "insert"])
@@ -612,12 +610,9 @@ export function createTextEditorToolFields(
 
 export function createViewToolFields(
   targetRepository: TargetRepository,
-  config?: GraphConfig,
+
 ) {
-  const repoRoot =
-    config && isLocalMode(config)
-      ? getLocalWorkingDirectory()
-      : getRepoAbsolutePath(targetRepository);
+  const repoRoot = getRepoAbsolutePath(targetRepository);
   const viewSchema = z.object({
     command: z.enum(["view"]).describe("The command to execute: view"),
     path: z

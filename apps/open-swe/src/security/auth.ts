@@ -53,7 +53,8 @@ export const auth = new Auth()
     // Check for local mode first
     const localModeHeader = request.headers.get(LOCAL_MODE_HEADER);
     const isRunningLocalModeEnv = process.env.OPEN_SWE_LOCAL_MODE === "true";
-    if (localModeHeader === "true" && isRunningLocalModeEnv) {
+    const isRunningDockerModeEnv = process.env.OPEN_SWE_DOCKER_MODE === "true";
+    if ((localModeHeader === "true" && isRunningLocalModeEnv) || isRunningDockerModeEnv) {
       return {
         identity: "local-user",
         is_authenticated: true,

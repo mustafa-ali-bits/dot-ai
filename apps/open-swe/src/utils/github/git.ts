@@ -1,4 +1,4 @@
-import { Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "../sandbox.js";
 import { createLogger, LogLevel } from "../logger.js";
 import {
   GraphConfig,
@@ -6,21 +6,29 @@ import {
   TaskPlan,
 } from "@openswe/shared/open-swe/types";
 import { TIMEOUT_SEC } from "@openswe/shared/constants";
-import { getSandboxErrorFields } from "../sandbox-error-fields.js";
-import { getRepoAbsolutePath } from "@openswe/shared/git";
 import { ExecuteResponse } from "@daytonaio/sdk/src/types/ExecuteResponse.js";
 import { withRetry } from "../retry.js";
+// Default patterns to exclude from git operations
+export const DEFAULT_EXCLUDED_PATTERNS = [
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  ".DS_Store",
+  "coverage",
+  ".env",
+];
+import { getSandboxErrorFields } from "../sandbox-error-fields.js";
+import { createShellExecutor } from "../shell-executor/index.js";
+import { getRepoAbsolutePath } from "@openswe/shared/git";
 import {
-  addPullRequestNumberToActiveTask,
   getActiveTask,
   getPullRequestNumberFromActiveTask,
+  addPullRequestNumberToActiveTask,
 } from "@openswe/shared/open-swe/tasks";
 import { createPullRequest, getBranch } from "./api.js";
 import { addTaskPlanToIssue } from "./issue-task.js";
-import { DEFAULT_EXCLUDED_PATTERNS } from "./constants.js";
 import { escapeRegExp } from "../string-utils.js";
-import { isLocalMode } from "@openswe/shared/open-swe/local-mode";
-import { createShellExecutor } from "../shell-executor/index.js";
 import { shouldCreateIssue } from "../should-create-issue.js";
 
 const logger = createLogger(LogLevel.INFO, "GitHub-Git");
@@ -151,14 +159,7 @@ export async function stashAndClearChanges(
   sandbox: Sandbox | null,
   config?: GraphConfig,
 ): Promise<ExecuteResponse | false> {
-  // In local mode, we don't want to stash and clear changes
-  if (config && isLocalMode(config)) {
-    logger.info("Skipping stash and clear changes in local mode");
-    return {
-      exitCode: 0,
-      result: "Skipped stash and clear in local mode",
-    };
-  }
+
 
   try {
     // Use unified shell executor
@@ -262,9 +263,9 @@ export async function checkoutBranchAndCommit(
     const errorFields =
       pushRes instanceof Error
         ? {
-            message: pushRes.message,
-            name: pushRes.name,
-          }
+          message: pushRes.message,
+          name: pushRes.name,
+        }
         : pushRes;
 
     logger.error("Failed to push changes, attempting to pull and push again", {
@@ -287,9 +288,9 @@ export async function checkoutBranchAndCommit(
       const errorFields =
         pullRes instanceof Error
           ? {
-              message: pullRes.message,
-              name: pullRes.name,
-            }
+            message: pullRes.message,
+            name: pullRes.name,
+          }
           : pullRes;
       logger.error("Failed to pull changes after a push failed.", {
         ...errorFields,
@@ -314,11 +315,11 @@ export async function checkoutBranchAndCommit(
       const errorFields = {
         ...(pushRes2 instanceof Error
           ? {
-              name: pushRes2.name,
-              message: pushRes2.message,
-              stack: pushRes2.stack,
-              cause: pushRes2.cause,
-            }
+            name: pushRes2.name,
+            message: pushRes2.message,
+            stack: pushRes2.stack,
+            cause: pushRes2.cause,
+          }
           : pushRes2),
       };
       logger.error("Failed to push changes", {
@@ -540,11 +541,11 @@ async function performClone(
 
   const branchExists = branchName
     ? !!(await getBranch({
-        owner: targetRepository.owner,
-        repo: targetRepository.repo,
-        branchName,
-        githubInstallationToken,
-      }))
+      owner: targetRepository.owner,
+      repo: targetRepository.repo,
+      branchName,
+      githubInstallationToken,
+    }))
     : false;
 
   if (branchExists) {

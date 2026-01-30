@@ -175,7 +175,7 @@ export async function takeReviewerActions(
   let updatedTaskPlan: TaskPlan | undefined;
 
   if (!isLocalMode(config)) {
-    const repoPath = getRepoAbsolutePath(state.targetRepository, config);
+    const repoPath = getRepoAbsolutePath(state.targetRepository);
     const changedFiles = await getChangedFilesStatus(repoPath, sandbox, config);
 
     if (changedFiles.length > 0) {
@@ -229,10 +229,10 @@ export async function takeReviewerActions(
     ...toolCallResults,
     ...(updatedTaskPlan && pullRequestNumber
       ? createPullRequestToolCallMessage(
-          state.targetRepository,
-          pullRequestNumber,
-          true,
-        )
+        state.targetRepository,
+        pullRequestNumber,
+        true,
+      )
       : []),
   ];
 

@@ -20,6 +20,7 @@ import {
   createGetURLContentTool,
   createSearchDocumentForTool,
   createWriteDefaultTsConfigTool,
+  createCreateNewFileTool,
 } from "../../../../tools/index.js";
 import { formatPlanPrompt } from "../../../../utils/plan-prompt.js";
 import { stopSandbox } from "../../../../utils/sandbox.js";
@@ -203,12 +204,13 @@ async function createToolsAndPrompt(
     createMarkTaskCompletedToolFields(),
     createSearchDocumentForTool(state, config),
     createWriteDefaultTsConfigTool(state, config),
+    createCreateNewFileTool(state, config),
     ...(shouldIncludeReviewCommentTool(state, config)
       ? [
-          createReplyToReviewCommentTool(state, config),
-          createReplyToCommentTool(state, config),
-          createReplyToReviewTool(state, config),
-        ]
+        createReplyToReviewCommentTool(state, config),
+        createReplyToCommentTool(state, config),
+        createReplyToReviewTool(state, config),
+      ]
       : []),
     ...mcpTools,
   ];
@@ -313,9 +315,9 @@ export async function generateAction(
     config,
   )
     ? await Promise.all([
-        getMissingMessages(state, config),
-        getPlansFromIssue(state, config),
-      ])
+      getMissingMessages(state, config),
+      getPlansFromIssue(state, config),
+    ])
     : [[], { taskPlan: null }];
 
   const { providerTools, providerMessages } = await createToolsAndPrompt(
@@ -338,8 +340,8 @@ export async function generateAction(
       tool_choice: "auto",
       ...(modelSupportsParallelToolCallsParam
         ? {
-            parallel_tool_calls: true,
-          }
+          parallel_tool_calls: true,
+        }
         : {}),
     },
   );

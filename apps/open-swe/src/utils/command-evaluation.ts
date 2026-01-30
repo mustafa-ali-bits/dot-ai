@@ -34,7 +34,7 @@ type SearchDocumentsToolArgs = z.infer<typeof _searchDocumentsTool.schema>;
 const _getURLContentTool = createGetURLContentToolFields();
 type GetURLContentToolArgs = z.infer<typeof _getURLContentTool.schema>;
 
-const _textEditorTool = createTextEditorToolFields(dummyRepo, {});
+const _textEditorTool = createTextEditorToolFields(dummyRepo);
 type StrReplaceEditToolArgs = z.infer<typeof _textEditorTool.schema>;
 
 export interface CommandEvaluation {

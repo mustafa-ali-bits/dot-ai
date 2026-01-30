@@ -10,7 +10,7 @@ import { AIMessage, ToolMessage } from "@langchain/core/messages";
 import { v4 as uuidv4 } from "uuid";
 import { createReviewStartedToolFields } from "@openswe/shared/open-swe/tools";
 import { getSandboxErrorFields } from "../../../utils/sandbox-error-fields.js";
-import { Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "../../../utils/sandbox.js";
 import { createShellExecutor } from "../../../utils/shell-executor/index.js";
 
 const logger = createLogger(LogLevel.INFO, "InitializeStateNode");
@@ -109,7 +109,7 @@ export async function initializeState(
   state: ReviewerGraphState,
   config: GraphConfig,
 ): Promise<ReviewerGraphUpdate> {
-  const repoRoot = getRepoAbsolutePath(state.targetRepository, config);
+  const repoRoot = getRepoAbsolutePath(state.targetRepository);
   logger.info("Initializing state for reviewer");
   // get the base branch name, then get the changed files
   const { sandbox, codebaseTree, dependenciesInstalled } =

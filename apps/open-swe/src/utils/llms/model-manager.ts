@@ -184,18 +184,18 @@ export class ModelManager {
       ...(apiKey ? { apiKey } : {}),
       ...(thinkingModel && provider === "anthropic"
         ? {
-            thinking: { budget_tokens: thinkingBudgetTokens, type: "enabled" },
-            maxTokens: thinkingMaxTokens,
-          }
+          thinking: { budget_tokens: thinkingBudgetTokens, type: "enabled" },
+          maxTokens: thinkingMaxTokens,
+        }
         : modelName.includes("gpt-5")
           ? {
-              max_completion_tokens: finalMaxTokens,
-              temperature: 1,
-            }
+            max_completion_tokens: finalMaxTokens,
+            temperature: 1,
+          }
           : {
-              maxTokens: finalMaxTokens,
-              temperature: thinkingModel ? undefined : temperature,
-            }),
+            maxTokens: finalMaxTokens,
+            temperature: thinkingModel ? undefined : temperature,
+          }),
     };
 
     logger.debug("Initializing model", {
@@ -228,20 +228,20 @@ export class ModelManager {
           modelName,
           ...(modelName.includes("gpt-5")
             ? {
-                max_completion_tokens:
-                  defaultConfig.maxTokens ?? baseConfig.maxTokens,
-                temperature: 1,
-              }
+              max_completion_tokens:
+                defaultConfig.maxTokens ?? baseConfig.maxTokens,
+              temperature: 1,
+            }
             : {
-                maxTokens: defaultConfig.maxTokens ?? baseConfig.maxTokens,
-                temperature:
-                  defaultConfig.temperature ?? baseConfig.temperature,
-              }),
+              maxTokens: defaultConfig.maxTokens ?? baseConfig.maxTokens,
+              temperature:
+                defaultConfig.temperature ?? baseConfig.temperature,
+            }),
           ...(isThinkingModel
             ? {
-                thinkingModel: true,
-                thinkingBudgetTokens: THINKING_BUDGET_TOKENS,
-              }
+              thinkingModel: true,
+              thinkingBudgetTokens: THINKING_BUDGET_TOKENS,
+            }
             : {}),
         };
         configs.push(selectedModelConfig);
@@ -265,20 +265,20 @@ export class ModelManager {
           ...fallbackModel,
           ...(fallbackModel.modelName.includes("gpt-5")
             ? {
-                max_completion_tokens: baseConfig.maxTokens,
-                temperature: 1,
-              }
+              max_completion_tokens: baseConfig.maxTokens,
+              temperature: 1,
+            }
             : {
-                maxTokens: baseConfig.maxTokens,
-                temperature: isThinkingModel
-                  ? undefined
-                  : baseConfig.temperature,
-              }),
+              maxTokens: baseConfig.maxTokens,
+              temperature: isThinkingModel
+                ? undefined
+                : baseConfig.temperature,
+            }),
           ...(isThinkingModel
             ? {
-                thinkingModel: true,
-                thinkingBudgetTokens: THINKING_BUDGET_TOKENS,
-              }
+              thinkingModel: true,
+              thinkingBudgetTokens: THINKING_BUDGET_TOKENS,
+            }
             : {}),
         };
         configs.push(fallbackConfig);
@@ -358,13 +358,13 @@ export class ModelManager {
       provider: modelProvider as Provider,
       ...(modelName.includes("gpt-5")
         ? {
-            max_completion_tokens: config.configurable?.maxTokens ?? 10_000,
-            temperature: 1,
-          }
+          max_completion_tokens: config.configurable?.maxTokens ?? 10_000,
+          temperature: 1,
+        }
         : {
-            maxTokens: config.configurable?.maxTokens ?? 10_000,
-            temperature: taskConfig.temperature,
-          }),
+          maxTokens: config.configurable?.maxTokens ?? 10_000,
+          temperature: taskConfig.temperature,
+        }),
       thinkingModel,
       thinkingBudgetTokens,
     };
@@ -386,11 +386,11 @@ export class ModelManager {
         [LLMTask.SUMMARIZER]: "claude-opus-4-5",
       },
       "google-genai": {
-        [LLMTask.PLANNER]: "gemini-3-pro-preview",
-        [LLMTask.PROGRAMMER]: "gemini-3-pro-preview",
-        [LLMTask.REVIEWER]: "gemini-flash-latest",
-        [LLMTask.ROUTER]: "gemini-flash-latest",
-        [LLMTask.SUMMARIZER]: "gemini-3-pro-preview",
+        [LLMTask.PLANNER]: "gemini-2.5-pro",
+        [LLMTask.PROGRAMMER]: "gemini-2.5-pro",
+        [LLMTask.REVIEWER]: "gemini-2.5-flash",
+        [LLMTask.ROUTER]: "gemini-2.5-flash",
+        [LLMTask.SUMMARIZER]: "gemini-2.5-flash",
       },
       openai: {
         [LLMTask.PLANNER]: "gpt-5-codex",

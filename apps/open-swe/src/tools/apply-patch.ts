@@ -7,13 +7,10 @@ import { createLogger, LogLevel } from "../utils/logger.js";
 import { createApplyPatchToolFields } from "@openswe/shared/open-swe/tools";
 import { getRepoAbsolutePath } from "@openswe/shared/git";
 import { getSandboxSessionOrThrow } from "./utils/get-sandbox-id.js";
-import { Sandbox } from "@daytonaio/sdk";
-import {
-  isLocalMode,
-  getLocalWorkingDirectory,
-} from "@openswe/shared/open-swe/local-mode";
+import { Sandbox } from "../utils/sandbox.js";
+
 import { createShellExecutor } from "../utils/shell-executor/shell-executor.js";
-import { join } from "path";
+
 import { v4 as uuidv4 } from "uuid";
 
 type FileOperationResult = {
@@ -38,9 +35,7 @@ async function applyPatchWithGit(
   config: GraphConfig,
 ): Promise<FileOperationResult> {
   // Generate temp patch file path
-  const tempPatchFile = isLocalMode(config)
-    ? join(workDir, `patch_${uuidv4()}.diff`)
-    : `/tmp/patch_${uuidv4()}.diff`;
+  const tempPatchFile = `/tmp/patch_${uuidv4()}.diff`;
 
   try {
     // Create the patch file using unified shell executor
@@ -108,14 +103,10 @@ export function createApplyPatchTool(state: GraphState, config: GraphConfig) {
   const applyPatchTool = tool(
     async (input): Promise<{ result: string; status: "success" | "error" }> => {
       const { diff, file_path } = input;
-      const workDir = isLocalMode(config)
-        ? getLocalWorkingDirectory()
-        : getRepoAbsolutePath(state.targetRepository);
+      const workDir = getRepoAbsolutePath(state.targetRepository);
 
-      // Get sandbox for sandbox mode (will be undefined for local mode)
-      const sandbox = isLocalMode(config)
-        ? null
-        : await getSandboxSessionOrThrow(input);
+      // Get sandbox for sandbox mode
+      const sandbox = await getSandboxSessionOrThrow(input);
 
       // Read the file using unified readFile function
       const readFileResult = await readFile({
@@ -197,8 +188,8 @@ export function createApplyPatchTool(state: GraphState, config: GraphConfig) {
             e instanceof Error ? e.message : "Unknown error";
           throw new Error(
             `FAILED TO APPLY PATCH: The diff could not be applied to file '${file_path}'.\n\n` +
-              `Git Error: ${gitResult.output}\n\n` +
-              `Diff Library Error: ${diffErrMessage}`,
+            `Git Error: ${gitResult.output}\n\n` +
+            `Diff Library Error: ${diffErrMessage}`,
           );
         }
       }
@@ -206,9 +197,9 @@ export function createApplyPatchTool(state: GraphState, config: GraphConfig) {
       if (patchedContent === false) {
         throw new Error(
           `FAILED TO APPLY PATCH: The diff could not be applied to file '${file_path}'.\n\n` +
-            `Git Error: ${gitResult.output}\n\n` +
-            `This may be due to an invalid diff format or conflicting changes with the file's current content. ` +
-            `Original content length: ${readFileOutput.length}, Diff: ${diff.substring(0, 100)}...`,
+          `Git Error: ${gitResult.output}\n\n` +
+          `This may be due to an invalid diff format or conflicting changes with the file's current content. ` +
+          `Original content length: ${readFileOutput.length}, Diff: ${diff.substring(0, 100)}...`,
         );
       }
 

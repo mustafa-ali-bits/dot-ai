@@ -1,0 +1,29 @@
+FROM node:18-alpine
+
+# Install required tools
+# bash (required for sandbox execution), git, tree, curl, python3
+RUN apk add --no-cache \
+    bash \
+    git \
+    tree \
+    curl \
+    python3 \
+    py3-pip
+
+# Create symlinks for compatibility (some tools expect /usr/bin/sh)
+RUN ln -sf /bin/sh /usr/bin/sh && \
+    ln -sf /bin/bash /usr/bin/bash
+
+# Compatible directory structure for Daytona-dependent code
+# Link /home/daytona to /home/node so absolute paths work
+RUN ln -s /home/node /home/daytona
+
+
+# Create sandbox workspace
+WORKDIR /home/node
+
+# Set user to node (built-in in node images)
+USER node
+
+# Verify bash is available at expected paths
+RUN /bin/bash --version && /usr/bin/bash --version

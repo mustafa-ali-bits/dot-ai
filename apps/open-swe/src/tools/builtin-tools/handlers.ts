@@ -1,4 +1,4 @@
-import { Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "../../utils/sandbox.js";
 import { readFile, writeFile } from "../../utils/read-write.js";
 import { getSandboxErrorFields } from "../../utils/sandbox-error-fields.js";
 import { GraphConfig } from "@openswe/shared/open-swe/types";
@@ -20,7 +20,7 @@ export async function handleViewCommand(
     // Check if path is a directory
     const executor = createShellExecutor(config);
     const statOutput = await executor.executeCommand({
-      command: `stat -c %F "${path}"`,
+      command: `stat -L -c %F "${path}"`,
       workdir: workDir,
       sandbox,
     });

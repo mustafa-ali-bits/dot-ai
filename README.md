@@ -1,48 +1,223 @@
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="apps/docs/logo/dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="apps/docs/logo/light.svg">
-    <img src="apps/docs/logo/dark.svg" alt="Open SWE Logo" width="35%">
-  </picture>
-</div>
+# Open SWE - Self-Hosted AI Coding Agent
 
-<div align="center">
-  <h1>Open SWE - An Open-Source Asynchronous Coding Agent</h1>
-</div>
+> **Forked from [All-Hands-AI/open-swe](https://github.com/All-Hands-AI/open-swe)** with Docker mode support and local execution capabilities.
 
-> [!WARNING]
-> **⚠️ DEPRECATION NOTICE**
-> 
-> This repository is no longer actively maintained and will not receive further updates. The project has been deprecated and users are advised to seek alternative solutions for their coding agent needs.
+An autonomous AI-powered software engineering agent that can plan, code, and create pull requests on your GitHub repositories. This fork adds **Docker-based sandbox execution** for self-hosted deployments.
 
-Open SWE is an open-source cloud-based asynchronous coding agent built with [LangGraph](https://docs.langchain.com/oss/javascript/langgraph/overview). It autonomously understands codebases, plans solutions, and executes code changes across entire repositories—from initial planning to opening pull requests.
+## 🌟 Features
 
-> [!TIP]
-> Try out Open SWE yourself using our [public demo](https://swe.langchain.com)!
->
-> **Note: you're required to set your own LLM API keys to use the demo.**
+- **Autonomous Coding**: Give it a GitHub issue, it plans and implements the solution
+- **GitHub Integration**: Full OAuth, webhooks, and PR creation
+- **Multiple LLM Support**: Gemini, Claude, OpenAI, and more
+- **Docker Mode** *(New)*: Run in isolated Docker containers without Daytona
+- **Local Mode** *(New)*: Test on local projects without sandboxes
 
-> [!NOTE]
-> 📚 See the **Open SWE documentation files [here](https://github.com/langchain-ai/open-swe/tree/main/apps/docs)**
->
-> 💬 Read the **announcement blog post [here](https://blog.langchain.com/introducing-open-swe-an-open-source-asynchronous-coding-agent/)**
->
-> 📺 Watch the **announcement video [here](https://youtu.be/TaYVvXbOs8c)**
+## 🏗️ Architecture
 
-# Features
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Browser                               │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│                  Next.js Web App (:3000)                     │
+│  - Dashboard UI                                              │
+│  - GitHub OAuth                                              │
+│  - Task Management                                           │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│               LangGraph Agent Server (:2024)                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │   Planner   │  │ Programmer  │  │  Reviewer   │          │
+│  └─────────────┘  └─────────────┘  └─────────────┘          │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+   ┌─────────┐      ┌─────────┐      ┌─────────────┐
+   │ LLM API │      │ GitHub  │      │   Sandbox   │
+   │ (Gemini)│      │   API   │      │(Docker/Local)│
+   └─────────┘      └─────────┘      └─────────────┘
+```
 
-![UI Screenshot](./static/ui-screenshot.png)
+## 🚀 Quick Start
 
-- 📝 **Planning**: Open SWE has a dedicated planning step which allows it to deeply understand complex codebases and nuanced tasks. You're also given the ability to accept, edit, or reject the proposed plan before it's executed.
-- 🤝 **Human in the loop**: With Open SWE, you can send it messages while it's running (both during the planning and execution steps). This allows for giving real time feedback and instructions without having to interrupt the process.
-- 🏃 **Parallel Execution**: You can run as many Open SWE tasks as you want in parallel! Since it runs in a sandbox environment in the cloud, you're not limited by the number of tasks you can run at once.
-- 🧑‍💻 **End to end task management**: Open SWE will automatically create GitHub issues for tasks, and create pull requests which will close the issue when implementation is complete.
+### Prerequisites
 
+- Node.js 20+
+- Yarn
+- Git
+- Docker (optional, for Docker mode)
+- A GitHub App (see [GitHub App Setup](#github-app-setup))
+- A Gemini API key (or other LLM provider)
 
-## Usage
+### Installation
 
-Open SWE can be used in multiple ways:
+```bash
+# Clone this fork
+git clone https://github.com/your-username/open-swe-fork.git
+cd open-swe-fork
 
-- 🖥️ **From the UI**. You can create, manage and execute Open SWE tasks from the [web application](https://swe.langchain.com).
-- 📝 **From GitHub**. You can start Open SWE tasks directly from GitHub issues simply by adding a label `open-swe`, or `open-swe-auto` (adding `-auto` will cause Open SWE to automatically accept the plan, requiring no intervention from you). The default `open-swe` labels now use Claude Opus 4.5 for optimal performance. Note: `open-swe-max` and `open-swe-max-auto` labels are deprecated and should no longer be used.
+# Install dependencies
+yarn install
+```
 
+### Environment Setup
+
+1. **Agent Configuration** (`apps/open-swe/.env`):
+
+```bash
+# LLM Configuration
+GOOGLE_API_KEY="your-gemini-api-key"
+
+# GitHub App
+GITHUB_APP_NAME="your-app-name"
+GITHUB_APP_ID="your-app-id"
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+...your private key...
+-----END RSA PRIVATE KEY-----"
+GITHUB_APP_CLIENT_ID="your-client-id"
+GITHUB_APP_CLIENT_SECRET="your-client-secret"
+GITHUB_WEBHOOK_SECRET="your-webhook-secret"
+
+# Security
+SECRETS_ENCRYPTION_KEY="your-32-byte-hex-key"
+
+# Execution Mode (choose one)
+OPEN_SWE_LOCAL_MODE="true"           # For local development
+# OPEN_SWE_DOCKER_MODE="true"        # For Docker sandbox
+```
+
+2. **Web App Configuration** (`apps/web/.env`):
+
+```bash
+NEXT_PUBLIC_GITHUB_APP_CLIENT_ID="your-client-id"
+GITHUB_APP_CLIENT_SECRET="your-client-secret"
+GITHUB_APP_REDIRECT_URI="http://localhost:3000/api/auth/github/callback"
+
+GITHUB_APP_NAME="your-app-name"
+GITHUB_APP_ID="your-app-id"
+GITHUB_APP_PRIVATE_KEY="..."
+
+NEXT_PUBLIC_API_URL="http://localhost:3000/api"
+LANGGRAPH_API_URL="http://localhost:2024"
+SECRETS_ENCRYPTION_KEY="same-key-as-agent"
+
+NEXT_PUBLIC_LOCAL_MODE="true"
+```
+
+### Running the Application
+
+**Start both servers:**
+
+```bash
+# Terminal 1: LangGraph Agent
+cd apps/open-swe
+yarn dev
+# Runs on http://localhost:2024
+
+# Terminal 2: Web App
+cd apps/web
+yarn dev
+# Runs on http://localhost:3000
+```
+
+Open http://localhost:3000 in your browser.
+
+## 🔐 GitHub App Setup
+
+1. Go to **GitHub Settings** → **Developer settings** → **GitHub Apps** → **New GitHub App**
+
+2. Configure the app:
+   - **Name**: `your-app-name`
+   - **Homepage URL**: `http://localhost:3000`
+   - **Callback URL**: `http://localhost:3000/api/auth/github/callback`
+   - **Webhook URL**: `http://your-public-url/webhooks/github` (use ngrok for local)
+   - **Webhook Secret**: Generate a secure secret
+
+3. **Permissions**:
+   - Repository: Contents (Read & Write), Pull Requests (Read & Write), Issues (Read & Write)
+   - Account: Email (Read)
+
+4. After creation, generate a **Private Key** and note your **App ID**, **Client ID**, and **Client Secret**.
+
+5. Install the app on your repositories.
+
+## 🐳 Docker Mode (Self-Hosted)
+
+For production deployments, Docker mode provides isolated sandbox execution:
+
+```bash
+# Build the Docker image
+cd docker
+docker build -t open-swe-sandbox .
+
+# Set OPEN_SWE_DOCKER_MODE=true in your .env
+```
+
+The Docker sandbox includes:
+- Ubuntu 22.04 base
+- Node.js 20, Python 3.11, Go 1.21, Rust
+- Git, ripgrep, fd, and common dev tools
+
+## 🤖 Supported LLM Providers
+
+| Provider | Models | Environment Variable |
+|----------|--------|---------------------|
+| Google | gemini-2.5-pro, gemini-2.5-flash | `GOOGLE_API_KEY` |
+| Anthropic | claude-opus-4-5, claude-sonnet-4 | `ANTHROPIC_API_KEY` |
+| OpenAI | gpt-5-codex, gpt-5-turbo | `OPENAI_API_KEY` |
+
+Configure in `apps/open-swe/src/utils/llms/model-manager.ts`.
+
+## 📁 Project Structure
+
+```
+open-swe-fork/
+├── apps/
+│   ├── open-swe/          # LangGraph Agent Server
+│   │   ├── src/
+│   │   │   ├── graphs/    # Agent graphs (planner, programmer, reviewer)
+│   │   │   ├── tools/     # Agent tools (shell, file ops, git)
+│   │   │   └── utils/     # Utilities (sandbox, LLM, GitHub)
+│   │   └── .env           # Agent configuration
+│   └── web/               # Next.js Web Application
+│       ├── src/
+│       │   ├── app/       # Next.js app router
+│       │   └── components/# React components
+│       └── .env           # Web app configuration
+├── packages/
+│   └── shared/            # Shared types and utilities
+├── docker/                # Docker sandbox configuration
+└── libs/
+    └── sdk-typescript/    # Daytona SDK (optional)
+```
+
+## 🔧 Key Modifications in This Fork
+
+1. **Local Mode**: Execute on local filesystem without Daytona
+2. **Docker Mode**: Isolated Docker container sandbox
+3. **macOS Shell Fix**: Proper shell path detection for macOS
+4. **Gemini 2.5 Support**: Updated model configurations
+5. **Enhanced Error Handling**: Better sandbox stop/delete in local mode
+
+## 🤝 Contributing
+
+1. Fork this repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run tests: `yarn test`
+5. Commit: `git commit -am 'Add my feature'`
+6. Push: `git push origin feature/my-feature`
+7. Create a Pull Request
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file.
+
+## 🙏 Acknowledgments
+
+- Original [Open SWE](https://github.com/All-Hands-AI/open-swe) by All-Hands-AI
+- [LangGraph](https://github.com/langchain-ai/langgraph) for agent orchestration
+- [Daytona](https://www.daytona.io/) for the original sandbox infrastructure
