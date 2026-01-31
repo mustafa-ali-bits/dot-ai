@@ -9,6 +9,8 @@ An autonomous AI-powered software engineering agent that can plan, code, and cre
 - **Autonomous Coding**: Give it a GitHub issue, it plans and implements the solution
 - **GitHub Integration**: Full OAuth, webhooks, and PR creation
 - **Multiple LLM Support**: Gemini, Claude, OpenAI, and more
+- **Queue System**: Manages concurrent sandbox executions preventing overload
+- **Delete Thread UI**: Easily manage and remove old conversation threads
 - **Docker Mode** *(New)*: Run in isolated Docker containers without Daytona
 
 
@@ -200,7 +202,9 @@ open-swe-fork/
 2. **Docker Mode**: Isolated Docker container sandbox
 3. **macOS Shell Fix**: Proper shell path detection for macOS
 4. **Gemini 2.5 Support**: Updated model configurations
-5. **Enhanced Error Handling**: Better sandbox stop/delete in local mode
+5. **Queue System**: Implemented task queue to manage concurrent sandbox usage
+6. **Web UI Updates**: Added UI for thread deletion and improved thread management
+7. **Enhanced Error Handling**: Better sandbox stop/delete in local mode
 
 ## 🤝 Contributing
 

@@ -564,7 +564,32 @@ async function initializeSandboxDocker(
 
   let sandbox: Sandbox;
   try {
-    sandbox = await daytonaClient(config).create(DEFAULT_SANDBOX_CREATE_PARAMS);
+    const client = daytonaClient(config);
+
+    // For Docker mode, pass onWaiting callback to show queue status
+    if (isDockerMode(config) && 'create' in client) {
+      const dockerClient = client as any;
+      sandbox = await dockerClient.create(DEFAULT_SANDBOX_CREATE_PARAMS, undefined, (queuePosition: number) => {
+        // Emit waiting in queue event
+        const waitingEvent: CustomNodeEvent = {
+          nodeId: INITIALIZE_NODE_ID,
+          createdAt: new Date().toISOString(),
+          actionId: uuidv4(),
+          action: "Waiting in queue",
+          data: {
+            status: "pending",
+            queuePosition,
+            message: `Waiting for available container slot (position ${queuePosition} in queue)`,
+            branch: branchName,
+            repo: repoName,
+          },
+        };
+        emitStepEvent(waitingEvent, "pending");
+        logger.info("Task queued, waiting for container slot", { queuePosition });
+      });
+    } else {
+      sandbox = await client.create(DEFAULT_SANDBOX_CREATE_PARAMS);
+    }
     emitStepEvent(baseCreateSandboxAction, "success");
   } catch (e) {
     logger.error("Failed to create Docker sandbox", { e });

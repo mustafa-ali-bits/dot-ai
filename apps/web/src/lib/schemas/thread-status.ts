@@ -16,6 +16,7 @@ export type ThreadUIStatus =
   | "pending" // UI-specific state
   | "idle" // Same as LangGraph "idle"
   | "paused" // Maps from LangGraph "interrupted"
+  | "waiting" // Queued waiting for available container slot
   | "error"; // Same as LangGraph "error"
 
 export function mapLangGraphToUIStatus(status: ThreadStatus): ThreadUIStatus {
@@ -40,9 +41,9 @@ export interface ThreadStatusError {
 
 export interface ThreadStatusData {
   graph:
-    | typeof MANAGER_GRAPH_ID
-    | typeof PLANNER_GRAPH_ID
-    | typeof PROGRAMMER_GRAPH_ID;
+  | typeof MANAGER_GRAPH_ID
+  | typeof PLANNER_GRAPH_ID
+  | typeof PROGRAMMER_GRAPH_ID;
   runId: string;
   threadId: string;
   status: ThreadUIStatus;

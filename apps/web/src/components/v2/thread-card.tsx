@@ -87,6 +87,8 @@ export function ThreadCard({
         return "bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300";
       case "pending":
         return "bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300";
+      case "waiting":
+        return "bg-orange-100 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300";
       default:
         return "bg-gray-200 dark:bg-muted text-gray-700 dark:text-muted-foreground";
     }
@@ -106,6 +108,8 @@ export function ThreadCard({
         return <Pause className="h-4 w-4" />;
       case "failed":
         return <XCircle className="h-4 w-4" />;
+      case "waiting":
+        return <Clock className="h-4 w-4 animate-pulse" />;
       default:
         return null;
     }
@@ -206,11 +210,11 @@ export function ThreadCard({
                   "h-5 w-5 p-0 transition-all duration-200 hover:scale-110 hover:text-gray-300",
                   getPRStatusColor(thread.pullRequest.status),
                   thread.pullRequest.status === "merged" &&
-                    "hover:bg-purple-100 dark:hover:bg-purple-950",
+                  "hover:bg-purple-100 dark:hover:bg-purple-950",
                   thread.pullRequest.status === "open" &&
-                    "hover:bg-green-100 dark:hover:bg-green-950",
+                  "hover:bg-green-100 dark:hover:bg-green-950",
                   thread.pullRequest.status === "closed" &&
-                    "hover:bg-red-100 dark:hover:bg-red-950",
+                  "hover:bg-red-100 dark:hover:bg-red-950",
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
