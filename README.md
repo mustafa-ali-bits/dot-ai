@@ -1,6 +1,6 @@
-# DOT AI - Self-Hosted AI Coding Agent
+# DOT AI - Self-Hosted AI Coding Agent 
 
-> **Forked from [All-Hands-AI/open-swe](https://github.com/All-Hands-AI/open-swe)** with Docker mode support and local execution capabilities.
+> **Forked from [langchain-ai/open-swe](https://github.com/langchain-ai/open-swe)** with Docker mode support and local execution capabilities.
 
 An autonomous AI-powered software engineering agent that can plan, code, and create pull requests on your GitHub repositories. This fork adds **Docker-based sandbox execution** for self-hosted deployments.
 
@@ -10,7 +10,7 @@ An autonomous AI-powered software engineering agent that can plan, code, and cre
 - **GitHub Integration**: Full OAuth, webhooks, and PR creation
 - **Multiple LLM Support**: Gemini, Claude, OpenAI, and more
 - **Docker Mode** *(New)*: Run in isolated Docker containers without Daytona
-- **Local Mode** *(New)*: Test on local projects without sandboxes
+
 
 ## 🏗️ Architecture
 
@@ -218,6 +218,5 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 
 ## 🙏 Acknowledgments
 
-- Original [Open SWE](https://github.com/All-Hands-AI/open-swe) by All-Hands-AI
+- Original [Open SWE](langchain-ai/open-swe) by langchain-ai
 - [LangGraph](https://github.com/langchain-ai/langgraph) for agent orchestration
-- [Daytona](https://www.daytona.io/) for the original sandbox infrastructure
