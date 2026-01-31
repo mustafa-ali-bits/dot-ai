@@ -94,7 +94,7 @@ function AuthStatusContent() {
               </h1>
             </div>
             <p className="text-muted-foreground">
-              Connect your GitHub account to get started with Open SWE.
+              Connect your GitHub account to get started with DOT AI.
             </p>
             <Button
               onClick={handleLogin}

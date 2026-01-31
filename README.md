@@ -1,4 +1,4 @@
-# Open SWE - Self-Hosted AI Coding Agent
+# DOT AI - Self-Hosted AI Coding Agent
 
 > **Forked from [All-Hands-AI/open-swe](https://github.com/All-Hands-AI/open-swe)** with Docker mode support and local execution capabilities.
 

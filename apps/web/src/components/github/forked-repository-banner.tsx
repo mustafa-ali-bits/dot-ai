@@ -15,7 +15,7 @@ export function IssuesRequiredBanner() {
     (repo) =>
       selectedRepository &&
       repo.full_name ===
-        `${selectedRepository.owner}/${selectedRepository.repo}`,
+      `${selectedRepository.owner}/${selectedRepository.repo}`,
   );
 
   // If the repo has issues enabled, we support it.
@@ -36,8 +36,8 @@ export function IssuesRequiredBanner() {
       <AlertTitle>Issues Must Be Enabled</AlertTitle>
       <AlertDescription>
         <p>
-          Open SWE requires issues to be enabled on the repository. Please
-          enable issues on the repository to use Open SWE.
+          DOT AI requires issues to be enabled on the repository. Please
+          enable issues on the repository to use DOT AI.
         </p>
         <p>
           See{" "}

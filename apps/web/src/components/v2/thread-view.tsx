@@ -4,9 +4,10 @@ import { v4 as uuidv4 } from "uuid";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, GitBranch, Terminal, Clock } from "lucide-react";
+import { ArrowLeft, GitBranch, Terminal, Clock, Trash2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThreadSwitcher } from "./thread-switcher";
+import { useRouter } from "next/navigation";
 import { ThreadMetadata } from "./types";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import { ManagerGraphState } from "@openswe/shared/open-swe/manager/types";
@@ -94,6 +95,7 @@ export function ThreadView({
   displayThread,
   onBackToHome,
 }: ThreadViewProps) {
+  const router = useRouter();
   const { user } = useUser();
   const [chatInput, setChatInput] = useState("");
   const [selectedTab, setSelectedTab] = useState<"planner" | "programmer">(
@@ -279,7 +281,7 @@ export function ThreadView({
       (plannerStream.values.programmerSession.runId !==
         programmerSession?.runId ||
         plannerStream.values.programmerSession.threadId !==
-          programmerSession?.threadId)
+        programmerSession?.threadId)
     ) {
       setProgrammerSession?.(plannerStream.values.programmerSession);
 
@@ -351,9 +353,9 @@ export function ThreadView({
   // Merge optimistic message with stream messages
   const displayMessages = optimisticMessage
     ? [
-        optimisticMessage,
-        ...filteredMessages.filter((msg) => msg.id !== optimisticMessage.id),
-      ]
+      optimisticMessage,
+      ...filteredMessages.filter((msg) => msg.id !== optimisticMessage.id),
+    ]
     : filteredMessages;
 
   const shouldDisableManagerInput = !hasGitHubIssue
@@ -394,6 +396,28 @@ export function ThreadView({
             )}
           </div>
           <ThreadSwitcher currentThread={displayThread} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={async () => {
+              if (
+                confirm(
+                  "Are you sure you want to delete this thread? This action cannot be undone.",
+                )
+              ) {
+                try {
+                  await stream.client.threads.delete(displayThread.id);
+                  router.push("/chat");
+                } catch (e) {
+                  console.error("Failed to delete thread", e);
+                }
+              }
+            }}
+            title="Delete Thread"
+          >
+            <Trash2 className="text-muted-foreground hover:text-destructive h-4 w-4" />
+          </Button>
           <ThemeToggle />
         </div>
       </div>
@@ -497,11 +521,22 @@ export function ThreadView({
                                 />
                               </div>
                             ) : (
-                              <div className="flex items-center justify-center gap-2 py-8">
-                                <Clock className="text-muted-foreground size-4" />
-                                <span className="text-muted-foreground text-sm">
-                                  No planner session
-                                </span>
+                              <div className="flex flex-col items-center justify-center gap-2 py-8">
+                                {stream.isLoading ? (
+                                  <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    <span className="text-muted-foreground text-sm">
+                                      Initializing task...
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="text-muted-foreground size-4" />
+                                    <span className="text-muted-foreground text-sm">
+                                      Waiting to start
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             )}
                           </>

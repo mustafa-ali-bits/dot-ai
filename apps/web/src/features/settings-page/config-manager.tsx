@@ -187,7 +187,7 @@ export function ConfigManager() {
                         <CircleAlert className="h-4 w-4" />
                         <AlertDescription>
                           <p>
-                            <strong>Notice:</strong> Open SWE{" "}
+                            <strong>Notice:</strong> DOT AI{" "}
                             <i className="underline underline-offset-2">only</i>{" "}
                             supports MCP servers with <strong>HTTP</strong> or{" "}
                             <strong>SSE</strong> transports (with the exception
@@ -213,7 +213,7 @@ export function ConfigManager() {
                       step={config.step}
                       value={
                         configs[DEFAULT_CONFIG_KEY]?.[config.label] !==
-                        undefined
+                          undefined
                           ? configs[DEFAULT_CONFIG_KEY][config.label]
                           : config.default
                       }

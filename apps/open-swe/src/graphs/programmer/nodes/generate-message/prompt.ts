@@ -31,6 +31,8 @@ const FILE_CODE_MANAGEMENT_PROMPT = `<file_and_code_management>
     <repository_location>{REPO_DIRECTORY}</repository_location>
     <current_directory>{REPO_DIRECTORY}</current_directory>
     - All changes are auto-committed - no manual commits needed, and you should never create backup files.
+    - Pull requests are automatically created and updated by the system when tasks are completed. You should NEVER manually create PRs or push to GitHub.
+    - IMPORTANT: Do NOT use \`gh\` CLI, \`git push\`, or any git remote commands. The system handles all GitHub operations automatically via API.
     - Work only within the existing Git repository
     - Use \`install_dependencies\` to install dependencies (skip if installation fails). IMPORTANT: You should only call this tool if you're executing a task which REQUIRES installing dependencies. Keep in mind that not all tasks will require installing dependencies.
 </file_and_code_management>`;

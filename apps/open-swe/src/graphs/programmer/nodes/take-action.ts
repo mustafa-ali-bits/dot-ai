@@ -8,6 +8,7 @@ import {
   createShellTool,
   createSearchDocumentForTool,
   createWriteDefaultTsConfigTool,
+  createCreateNewFileTool,
 } from "../../../tools/index.js";
 import {
   GraphState,
@@ -72,12 +73,14 @@ export async function takeAction(
     state,
     config,
   );
+  const createNewFileTool = createCreateNewFileTool(state, config);
 
   const higherContextLimitToolNames = [
     ...mcpTools.map((t) => t.name),
     getURLContentTool.name,
     searchDocumentForTool.name,
     writeDefaultTsConfigTool.name,
+    createNewFileTool.name,
   ];
 
   const allTools = [
@@ -89,12 +92,13 @@ export async function takeAction(
     getURLContentTool,
     searchDocumentForTool,
     writeDefaultTsConfigTool,
+    createNewFileTool,
     ...(shouldIncludeReviewCommentTool(state, config)
       ? [
-          createReplyToReviewCommentTool(state, config),
-          createReplyToCommentTool(state, config),
-          createReplyToReviewTool(state, config),
-        ]
+        createReplyToReviewCommentTool(state, config),
+        createReplyToCommentTool(state, config),
+        createReplyToReviewTool(state, config),
+      ]
       : []),
     ...mcpTools,
   ];
@@ -296,10 +300,10 @@ export async function takeAction(
     ...toolCallResults,
     ...(updatedTaskPlan && pullRequestNumber
       ? createPullRequestToolCallMessage(
-          state.targetRepository,
-          pullRequestNumber,
-          true,
-        )
+        state.targetRepository,
+        pullRequestNumber,
+        true,
+      )
       : []),
   ];
 

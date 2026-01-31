@@ -123,53 +123,39 @@ export class DockerSandboxImpl implements DockerSandbox {
 }
 
 export class DockerSandboxPool {
-    private maxConcurrent = 2; // Fixed limit as requested
-    // We track active sandboxes. For Docker, "active" means created/running containers managed by this session/app.
-    // However, since we persist state, we should count actual running containers with our label.
+    private maxConcurrent: number;
     private activeContainerIds: Set<string> = new Set();
+    private queue: Array<{ resolve: (value: DockerSandbox) => void; reject: (reason?: any) => void; factory: () => Promise<DockerSandbox> }> = [];
+
     constructor() {
+        this.maxConcurrent = parseInt(
+            process.env.OPEN_SWE_MAX_CONCURRENT_CONTAINERS || "2",
+            10
+        );
+        logger.info("DockerSandboxPool initialized", { maxConcurrent: this.maxConcurrent });
     }
 
-    // Check running containers count on startup or periodically if needed
-    // For now, we trust internal tracking + check on create
-
-    public async acquire(createFn: () => Promise<DockerSandbox>): Promise<DockerSandbox> {
-        // Check current count
-        await this.refreshCount();
-
-        if (this.activeContainerIds.size < this.maxConcurrent) {
-            const sandbox = await createFn();
-            this.activeContainerIds.add(sandbox.id);
-            return sandbox;
-        }
-
-        logger.info("Max concurrent tasks reached. Queuing sandbox creation request.");
-        return new Promise((resolve, reject) => {
-            // @ts-ignore
-            this.queue.push({ resolve, reject, factory: createFn }); // Changed to store factory
-        });
+    public getMaxConcurrent(): number {
+        return this.maxConcurrent;
     }
 
-    public async release(id: string): Promise<void> {
-        this.activeContainerIds.delete(id);
-        this.processQueueRevised(); // Use revised queue processing
+    public getActiveCount(): number {
+        return this.activeContainerIds.size;
     }
 
-    public notifyStart(id: string) {
-        this.activeContainerIds.add(id);
+    public getQueueLength(): number {
+        return this.queue.length;
     }
 
-    private async refreshCount() {
-        // Optional: sync with actual docker state to be robust against restarts
-        // skipping for MVP efficiency, relying on in-memory state
+    public canAcquire(): boolean {
+        return this.activeContainerIds.size < this.maxConcurrent;
     }
 
-    // Revised queue handling
-    // We need to store the factory function in the queue
-    private queue: Array<{ resolve: (value: DockerSandbox) => void; reject: (reason?: any) => void; factory: () => Promise<DockerSandbox> }> = []; // Updated queue type
-
-    public async acquireWithFactory(factory: () => Promise<DockerSandbox>): Promise<DockerSandbox> {
-        if (this.activeContainerIds.size < this.maxConcurrent) {
+    public async acquireWithFactory(
+        factory: () => Promise<DockerSandbox>,
+        onWaiting?: (queuePosition: number) => void
+    ): Promise<DockerSandbox> {
+        if (this.canAcquire()) {
             try {
                 const sandbox = await factory();
                 this.activeContainerIds.add(sandbox.id);
@@ -179,14 +165,26 @@ export class DockerSandboxPool {
             }
         }
 
-        logger.info("Max concurrent tasks reached. Queuing request.");
+        const queuePosition = this.queue.length + 1;
+        logger.info("Max concurrent containers reached. Queuing request.", {
+            active: this.activeContainerIds.size,
+            max: this.maxConcurrent,
+            queueLength: this.queue.length,
+            queuePosition
+        });
+
+        // Notify caller they are waiting in queue
+        if (onWaiting) {
+            onWaiting(queuePosition);
+        }
+
         return new Promise((resolve, reject) => {
             this.queue.push({ resolve, reject, factory });
         });
     }
 
-    private async processQueueRevised() {
-        if (this.queue.length > 0 && this.activeContainerIds.size < this.maxConcurrent) {
+    private async processQueue() {
+        if (this.queue.length > 0 && this.canAcquire()) {
             const item = this.queue.shift();
             if (item) {
                 try {
@@ -195,16 +193,25 @@ export class DockerSandboxPool {
                     item.resolve(sandbox);
                 } catch (e) {
                     item.reject(e);
-                    // If failed, maybe try next?
-                    this.processQueueRevised();
+                    this.processQueue();
                 }
             }
         }
     }
 
-    public releaseSandox(id: string) {
+    public notifyStart(id: string) {
+        this.activeContainerIds.add(id);
+    }
+
+    public releaseSandbox(id: string) {
         this.activeContainerIds.delete(id);
-        this.processQueueRevised();
+        logger.info("Sandbox released", { id, active: this.activeContainerIds.size, queueLength: this.queue.length });
+        this.processQueue();
+    }
+
+    // Backwards compatibility alias
+    public releaseSandox(id: string) {
+        this.releaseSandbox(id);
     }
 }
 
@@ -217,7 +224,11 @@ export class DockerSandboxClient {
         this.pool = new DockerSandboxPool();
     }
 
-    public async create(_params: any, _options?: any): Promise<DockerSandbox> {
+    public async create(
+        _params: any,
+        _options?: any,
+        onWaiting?: (queuePosition: number) => void
+    ): Promise<DockerSandbox> {
         logger.info("Requesting Docker sandbox creation");
 
         return this.pool.acquireWithFactory(async () => {
@@ -247,7 +258,7 @@ export class DockerSandboxClient {
             logger.info(`Docker container started: ${container.id}`);
 
             return new DockerSandboxImpl(container, "running");
-        });
+        }, onWaiting);
     }
 
     public async get(sandboxId: string): Promise<DockerSandbox> {
